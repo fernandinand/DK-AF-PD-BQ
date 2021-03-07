@@ -1,0 +1,5 @@
+__pycache__/
+.idea/
+auth/*.json
+.env
+tests/

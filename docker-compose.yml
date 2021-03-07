@@ -1,0 +1,83 @@
+version: '3'
+
+services:
+  redis:
+    image: 'redis:5.0.5'
+
+  postgres:
+    image: postgres:alpine
+    environment:
+      - POSTGRES_USER=airflow
+      - POSTGRES_PASSWORD=airflow
+      - POSTGRES_DB=airflow
+
+  webserver:
+    image: puckel/docker-airflow:latest
+    restart: always
+    environment:
+      - LOAD_EX=n
+      - EXECUTOR=Celery
+    env_file:
+      - .env
+    volumes:
+      - ./dags:/usr/local/airflow/dags
+      - ./auth:/auth
+    ports:
+      - "8080:8080"
+    command: webserver
+    depends_on:
+      - postgres
+      - redis
+    healthcheck:
+      test: ["CMD-SHELL", "[ -f /usr/local/airflow/airflow-webserver.pid ]"]
+      interval: 30s
+      timeout: 30s
+      retries: 3
+    logging:
+      options:
+        max-size: 10m
+        max-file: "3"
+
+  flower:
+    image: puckel/docker-airflow:latest
+    restart: always
+    depends_on:
+      - redis
+    environment:
+      - LOAD_EX=n
+      - EXECUTOR=Celery
+    env_file:
+      - .env
+    ports:
+      - "5555:5555"
+    command: flower
+
+  scheduler:
+    image: puckel/docker-airflow:latest
+    restart: always
+    depends_on:
+      - webserver
+    volumes:
+      - ./dags:/usr/local/airflow/dags
+      - ./auth:/auth
+    environment:
+      - LOAD_EX=n
+      - EXECUTOR=Celery
+    env_file:
+      - .env
+    command: scheduler
+
+  worker:
+    image: puckel/docker-airflow:latest
+    restart: always
+    depends_on:
+      - scheduler
+    volumes:
+      - ./dags:/usr/local/airflow/dags
+      - ./auth:/auth
+    environment:
+      - LOAD_EX=n
+      - EXECUTOR=Celery
+    env_file:
+      - .env
+    command: worker
